@@ -9,316 +9,223 @@ const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlay-text");
 const overlayBtn = document.getElementById("overlay-btn");
 
-const gridSize = 10;
-const cellSize = canvas.width / gridSize;
-
-let gameStarted = false;
-let lives = 3;
-let level = 1;
-let muted = false;
-let flashTimer = 0;
-let goalPulse = 0;
+let level = 1,
+  lives = 3,
+  muted = false,
+  gameStarted = false;
 let currentPos = { r: -1, c: -1 };
+let flashTimer = 0,
+  goalPulse = 0;
+let levels = [];
 
-// WebAudio for simple sounds
-let audioCtx;
-function initAudio() {
-  if (!audioCtx) {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioCtx();
-  }
-}
-function playBeep(freq, duration = 200) {
-  if (muted || !audioCtx) return;
+// ---------------- AUDIO ----------------
+let audioCtx, bgMusic;
+const bgTracks = [
+  "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+  "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+  "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+];
+
+function beep(freq, dur = 200) {
+  if (muted) return;
+  if (!audioCtx)
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
+  let osc = audioCtx.createOscillator(),
+    gain = audioCtx.createGain();
   osc.frequency.value = freq;
   osc.connect(gain);
   gain.connect(audioCtx.destination);
   osc.start();
-  osc.stop(audioCtx.currentTime + duration / 1000);
+  osc.stop(audioCtx.currentTime + dur / 1000);
 }
 
-// Levels
-const levels = [
-  // Level 1
-  [
-    [2, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 1, 1, 1, 0],
-    [0, 1, 1, 1, 1, 1, 1, 0, 1, 3],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ],
-  // Level 2
-  [
-    [2, 1, 1, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 1, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 1, 1, 1, 0],
-    [0, 0, 0, 1, 0, 0, 1, 0, 1, 3],
-    [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ],
-  // Level 3
-  [
-    [2, 1, 1, 0, 0, 0, 0, 1, 0, 0],
-    [0, 0, 1, 0, 1, 1, 0, 1, 0, 0],
-    [0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
-    [0, 0, 1, 1, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 1, 0, 1, 0, 1, 0, 3],
-    [0, 0, 0, 1, 1, 1, 0, 1, 1, 1],
-    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ],
-  // Level 4
-  [
-    [2, 1, 1, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 1, 0, 1, 1, 1, 0, 0, 0],
-    [0, 0, 1, 0, 1, 0, 1, 1, 1, 0],
-    [0, 0, 1, 1, 1, 0, 0, 0, 1, 3],
-    [0, 0, 0, 0, 1, 0, 1, 0, 1, 0],
-    [0, 0, 0, 1, 1, 1, 1, 0, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ],
-  // Level 5
-  [
-    [2, 1, 0, 1, 0, 1, 0, 1, 0, 0],
-    [0, 1, 0, 1, 0, 1, 0, 1, 0, 0],
-    [0, 1, 0, 1, 0, 1, 1, 1, 0, 0],
-    [0, 1, 1, 1, 0, 0, 0, 1, 1, 0],
-    [0, 0, 0, 1, 1, 1, 0, 0, 1, 3],
-    [0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ],
-  // Level 6
-  [
-    [2, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-    [1, 1, 1, 1, 0, 1, 1, 0, 1, 0],
-    [0, 0, 0, 1, 0, 0, 1, 0, 1, 0],
-    [0, 1, 1, 1, 1, 0, 1, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 1, 1, 1, 0],
-    [0, 1, 1, 1, 1, 0, 0, 0, 1, 0],
-    [0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
-    [0, 1, 1, 0, 0, 0, 0, 0, 1, 0],
-    [0, 0, 0, 0, 1, 1, 1, 0, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 1, 3],
-  ],
-  // Level 7
-  [
-    [2, 0, 1, 0, 1, 0, 1, 0, 0, 0],
-    [1, 1, 1, 1, 1, 0, 1, 1, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 1, 0, 0],
-    [1, 1, 1, 0, 1, 1, 0, 1, 0, 0],
-    [0, 0, 1, 0, 0, 1, 0, 1, 1, 0],
-    [0, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
-    [1, 1, 0, 1, 0, 0, 0, 1, 0, 0],
-    [0, 0, 0, 0, 1, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 1, 1, 3],
-  ],
-  // Level 8
-  [
-    [2, 0, 0, 1, 0, 1, 0, 1, 0, 0],
-    [1, 1, 0, 1, 1, 0, 1, 0, 1, 0],
-    [0, 1, 0, 0, 1, 0, 0, 0, 1, 0],
-    [0, 1, 1, 0, 1, 1, 1, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 1, 1, 1, 0],
-    [1, 1, 1, 0, 1, 0, 1, 0, 1, 0],
-    [0, 0, 1, 1, 1, 1, 1, 0, 1, 0],
-    [0, 1, 0, 0, 0, 0, 0, 1, 1, 1],
-    [0, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 3],
-  ],
-  // Level 9
-  [
-    [2, 0, 0, 1, 1, 1, 0, 0, 0, 1],
-    [1, 1, 1, 1, 0, 1, 1, 0, 1, 0],
-    [0, 0, 0, 1, 0, 0, 1, 0, 1, 0],
-    [1, 1, 0, 1, 1, 0, 1, 1, 0, 0],
-    [0, 0, 1, 0, 1, 0, 0, 1, 1, 1],
-    [0, 1, 1, 1, 1, 1, 0, 0, 0, 1],
-    [0, 0, 0, 0, 0, 1, 1, 0, 0, 1],
-    [1, 1, 0, 1, 0, 0, 1, 0, 1, 1],
-    [0, 0, 0, 0, 1, 1, 1, 0, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 1, 3],
-  ],
-  // Level 10
-  [
-    [2, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 1, 1, 1, 0, 1, 0, 1],
-    [1, 0, 1, 0, 0, 3, 0, 1, 0, 1],
-    [1, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-    [1, 0, 1, 1, 1, 1, 1, 1, 0, 1],
-    [1, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  ],
-];
+function startBackgroundMusic() {
+  if (muted) return;
+  if (!bgMusic) {
+    let track = bgTracks[Math.floor(Math.random() * bgTracks.length)];
+    bgMusic = new Audio(track);
+    bgMusic.loop = true;
+    bgMusic.volume = 0.2;
+    bgMusic.play();
+  } else {
+    bgMusic.play();
+  }
+}
 
-function drawBoard() {
+function toggleMusic() {
+  if (!bgMusic) return;
+  muted ? bgMusic.pause() : bgMusic.play();
+}
+
+// ---------------- LEVEL GEN ----------------
+function gridSizeForLevel(lv) {
+  return 10 + Math.floor((lv - 1) / 3);
+}
+
+function makeLevel(lv) {
+  const size = gridSizeForLevel(lv);
+  const g = Array.from({ length: size }, () => Array(size).fill(0));
+  let r = 0,
+    c = 0;
+  g[0][0] = 2; // start
+  while (r !== size - 1 || c !== size - 1) {
+    let moves = [];
+    if (r < size - 1) moves.push([1, 0]);
+    if (c < size - 1) moves.push([0, 1]);
+    if (r > 0 && Math.random() < 0.3) moves.push([-1, 0]);
+    if (c > 0 && Math.random() < 0.3) moves.push([0, -1]);
+    let [dr, dc] = moves[Math.floor(Math.random() * moves.length)];
+    r += dr;
+    c += dc;
+    g[r][c] = 1;
+  }
+  g[size - 1][size - 1] = 3; // goal
+  return g;
+}
+
+function newGame() {
+  levels = [];
+  for (let i = 1; i <= 20; i++) levels.push(makeLevel(i));
+  level = 1;
+  lives = 3;
+  gameStarted = false;
+  currentPos = { r: -1, c: -1 };
+  updateHUD();
+  startBackgroundMusic();
+  draw();
+}
+
+// ---------------- DRAW ----------------
+function draw() {
+  let map = levels[level - 1],
+    size = map.length,
+    cell = canvas.width / size;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  let map = levels[level - 1];
-  for (let r = 0; r < gridSize; r++) {
-    for (let c = 0; c < gridSize; c++) {
+  for (let r = 0; r < size; r++)
+    for (let c = 0; c < size; c++) {
       if (map[r][c] === 0) ctx.fillStyle = "#444";
       if (map[r][c] === 1) ctx.fillStyle = "#00BFFF";
-      if (map[r][c] === 2) ctx.fillStyle = "red";
+      if (map[r][c] === 2) ctx.fillStyle = "red"; // start
       if (map[r][c] === 3) {
         let pulse = Math.sin(goalPulse / 10) * 0.3 + 0.7;
-        ctx.fillStyle = `rgba(0,255,0,${pulse})`;
+        ctx.fillStyle = `rgba(0,255,0,${pulse})`; // goal
       }
-      ctx.fillRect(c * cellSize, r * cellSize, cellSize, cellSize);
+      ctx.fillRect(c * cell, r * cell, cell, cell);
       ctx.strokeStyle = "#222";
-      ctx.strokeRect(c * cellSize, r * cellSize, cellSize, cellSize);
+      ctx.strokeRect(c * cell, r * cell, cell, cell);
     }
-  }
   if (flashTimer > 0) {
     ctx.fillStyle = "rgba(255,0,0,0.4)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     flashTimer--;
   }
   goalPulse++;
-  requestAnimationFrame(drawBoard);
+  requestAnimationFrame(draw);
 }
 
-function getCell(mouseX, mouseY) {
-  let c = Math.floor(mouseX / cellSize);
-  let r = Math.floor(mouseY / cellSize);
-  if (r < 0 || c < 0 || r >= gridSize || c >= gridSize) return { r: -1, c: -1 };
-  return { r, c };
+function getCell(x, y) {
+  let map = levels[level - 1],
+    size = map.length,
+    cell = canvas.width / size;
+  let c = Math.floor(x / cell),
+    r = Math.floor(y / cell);
+  return r < 0 || c < 0 || r >= size || c >= size ? { r: -1, c: -1 } : { r, c };
 }
 
+// ---------------- GAME LOGIC ----------------
 function updateHUD() {
-  livesText.textContent = `Lives: ${"❤️".repeat(lives)}`;
-  levelText.textContent = `Level: ${level}`;
+  livesText.textContent = "Lives: " + "❤️".repeat(lives);
+  levelText.textContent = "Level: " + level;
   statusText.textContent = `Level ${level} - Lives: ${lives}`;
 }
 
-function resetPosition() {
+function resetPos() {
   currentPos = { r: -1, c: -1 };
 }
 
-function levelComplete() {
-  playBeep(1000);
+function nextLevel() {
+  beep(1000);
   gameStarted = false;
-  resetPosition();
-  overlay.style.visibility = "visible";
-
-  if (level < levels.length) {
-    overlayText.textContent = `Level ${level} Complete!`;
-    overlayBtn.textContent = "Next Level";
-    overlayBtn.onclick = () => {
-      overlay.style.visibility = "hidden";
-      level++;
-      updateHUD();
-      resetPosition();
-    };
-  } else {
-    overlayText.textContent = `🎉 Congratulations! You finished all levels! 🎉`;
-    overlayBtn.textContent = "New Game";
-    overlayBtn.onclick = () => {
-      overlay.style.visibility = "hidden";
-      level = 1;
-      lives = 3;
-      gameStarted = false;
-      updateHUD();
-      resetPosition();
-    };
-  }
+  resetPos();
+  overlay.style.display = "flex";
+  overlayText.textContent = `Level ${level} Complete!`;
+  overlayBtn.textContent = "Next Level";
+  overlayBtn.style.background = "green";
+  overlayBtn.onclick = () => {
+    overlay.style.display = "none";
+    level++;
+    updateHUD();
+  };
 }
 
 function gameOver() {
   gameStarted = false;
-  resetPosition();
-  overlay.style.visibility = "visible";
-  overlayText.textContent = `Game Over!`;
+  resetPos();
+  overlay.style.display = "flex";
+  overlayText.textContent = "Game Over!";
   overlayBtn.textContent = "Restart";
+  overlayBtn.style.background = "red";
   overlayBtn.onclick = () => {
-    overlay.style.visibility = "hidden";
-    level = 1;
-    lives = 3;
-    gameStarted = false;
-    updateHUD();
-    resetPosition();
+    overlay.style.display = "none";
+    newGame();
   };
 }
 
+// ---------------- EVENTS ----------------
 canvas.addEventListener("click", (e) => {
-  let rect = canvas.getBoundingClientRect();
-  let x = e.clientX - rect.left;
-  let y = e.clientY - rect.top;
-  let { r, c } = getCell(x, y);
-  if (r === -1) return;
-  if (levels[level - 1][r][c] === 2) {
+  let { r, c } = getCell(e.offsetX, e.offsetY);
+  if (r !== -1 && levels[level - 1][r][c] === 2) {
     gameStarted = true;
-    initAudio();
-    statusText.textContent = `Level ${level} - Lives: ${lives}`;
-    playBeep(600);
+    beep(600);
+    updateHUD();
   }
 });
 
 canvas.addEventListener("mousemove", (e) => {
   if (!gameStarted) return;
-  let rect = canvas.getBoundingClientRect();
-  let x = e.clientX - rect.left;
-  let y = e.clientY - rect.top;
-  let { r, c } = getCell(x, y);
-  if (r === -1) return;
-
-  if (currentPos.r === r && currentPos.c === c) return;
+  let { r, c } = getCell(e.offsetX, e.offsetY);
+  if (r === -1 || (r === currentPos.r && c === currentPos.c)) return;
   currentPos = { r, c };
-
   let cell = levels[level - 1][r][c];
   if (cell === 0) {
     lives--;
     flashTimer = 10;
-    playBeep(200);
-    if (lives < 0) lives = 0;
+    beep(200);
     updateHUD();
     if (lives <= 0) gameOver();
   }
-  if (cell === 3) levelComplete();
+  if (cell === 3) nextLevel();
 });
 
 canvas.addEventListener("mouseleave", () => {
-  if (!gameStarted) return;
-  lives = 0;
-  flashTimer = 10;
-  playBeep(200);
-  updateHUD();
-  gameOver();
+  if (gameStarted) {
+    lives = 0;
+    updateHUD();
+    gameOver();
+  }
 });
 
-resetBtn.onclick = () => {
-  level = 1;
-  lives = 3;
-  gameStarted = false;
-  updateHUD();
-  resetPosition();
-};
+// ---------------- BUTTONS ----------------
+resetBtn.style.display = "inline-block";
+resetBtn.style.background = "red";
+resetBtn.style.borderRadius = "5px";
+resetBtn.onclick = () => newGame();
+
+muteBtn.style.display = "inline-block";
+muteBtn.style.background = "green";
+muteBtn.style.borderRadius = "5px";
 muteBtn.onclick = () => {
   muted = !muted;
+  toggleMusic();
   muteBtn.textContent = muted ? "Unmute" : "Mute";
 };
 
-updateHUD();
-drawBoard();
+overlayBtn.style.borderRadius = "5px";
+overlayBtn.style.display = "inline-block";
+overlayBtn.style.padding = "10px 20px";
+overlayBtn.style.color = "#fff";
+
+// ---------------- START ----------------
+newGame();
+draw();
