@@ -46,7 +46,42 @@ function beep(freq, dur = 100, type = "sine") {
   osc.stop(audioCtx.currentTime + dur / 1000);
 }
 
-// ---------------- Game Configuration ----------------
+//Game Configuratio
 function gridSizeForLevel(lv) {
   return 10 + Math.floor((lv - 1) / 2);
+}
+
+//Path Generation
+function makeLevel(lv) {
+  const size = gridSizeForLevel(lv);
+  const g = Array.from({ length: size }, () => Array(size).fill(0));
+  let r = 0,
+    c = 0;
+  g[0][0] = 2;
+
+  while (r !== size - 1 || c !== size - 1) {
+    let moves = [];
+    if (r < size - 1) moves.push([1, 0]);
+    if (c < size - 1) moves.push([0, 1]);
+
+    if (r > 0 && Math.random() < 0.2) moves.push([-1, 0]);
+    if (c > 0 && Math.random() < 0.2) moves.push([0, -1]);
+
+    if (moves.length === 0) {
+      if (r < size - 1) moves.push([1, 0]);
+      if (c < size - 1) moves.push([0, 1]);
+      if (r > 0) moves.push([-1, 0]);
+      if (c > 0) moves.push([0, -1]);
+    }
+    if (moves.length === 0) break;
+
+    let [dr, dc] = moves[Math.floor(Math.random() * moves.length)];
+    r += dr;
+    c += dc;
+    if (g[r][c] !== 2 && g[r][c] !== 3) {
+      g[r][c] = 1;
+    }
+  }
+  g[size - 1][size - 1] = 3;
+  return g;
 }
