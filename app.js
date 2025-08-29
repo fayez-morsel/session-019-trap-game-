@@ -45,3 +45,8 @@ function beep(freq, dur = 100, type = "sine") {
   osc.start(audioCtx.currentTime);
   osc.stop(audioCtx.currentTime + dur / 1000);
 }
+
+// ---------------- Game Configuration ----------------
+function gridSizeForLevel(lv) {
+  return 10 + Math.floor((lv - 1) / 2);
+}
