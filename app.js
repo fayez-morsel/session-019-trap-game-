@@ -119,7 +119,7 @@ function showOverlay(text, buttonText, buttonBg, onClickHandler) {
   overlay.classList.add("visible");
 }
 
-// Game State Management 
+// Game State Management
 function resetGame() {
   currentLevel = 1;
   currentLives = 3;
@@ -151,4 +151,12 @@ function gameOver() {
     "linear-gradient(to right, #ff6b6b, #ee5253)",
     resetGame
   );
+}
+// Game Initialization 
+function startGame() {
+  boardData = makeLevel(currentLevel);
+  renderBoard();
+  playerPos = { r: -1, c: -1 };
+  gameStarted = false;
+  updateHUD();
 }
