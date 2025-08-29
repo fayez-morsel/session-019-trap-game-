@@ -152,7 +152,7 @@ function gameOver() {
     resetGame
   );
 }
-// Game Initialization 
+// Game Initialization
 function startGame() {
   boardData = makeLevel(currentLevel);
   renderBoard();
@@ -160,3 +160,66 @@ function startGame() {
   gameStarted = false;
   updateHUD();
 }
+
+// Event Listeners
+gameBoard.addEventListener("click", (e) => {
+  const clickedCell = e.target.closest(".grid-cell");
+  if (!clickedCell) return;
+
+  const r = parseInt(clickedCell.dataset.row);
+  const c = parseInt(clickedCell.dataset.col);
+
+  if (!gameStarted && boardData[r][c] === 2) {
+    gameStarted = true;
+    beep(600, 100);
+    updatePlayerPosition(r, c);
+    gameMessage.textContent =
+      "Game Started! Follow the path to the green square.";
+  }
+});
+
+gameBoard.addEventListener("mousemove", (e) => {
+  if (!gameStarted) return;
+
+  const hoveredCell = e.target.closest(".grid-cell");
+  if (!hoveredCell) return;
+
+  const r = parseInt(hoveredCell.dataset.row);
+  const c = parseInt(hoveredCell.dataset.col);
+
+  if (r === playerPos.r && c === playerPos.c) return;
+
+  const dr = Math.abs(r - playerPos.r);
+  const dc = Math.abs(c - playerPos.c);
+
+  if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+    updatePlayerPosition(r, c);
+  } else if (dr === 0 && dc === 0) {
+  } else {
+    currentLives = 0;
+    beep(150, 300, "sawtooth");
+    applyFlashEffect();
+    updateHUD();
+    gameOver();
+  }
+});
+
+gameBoard.addEventListener("mouseleave", () => {
+  if (gameStarted) {
+    currentLives = 0;
+    beep(150, 300, "sawtooth");
+    applyFlashEffect();
+    updateHUD();
+    gameOver();
+  }
+});
+
+resetButton.addEventListener("click", resetGame);
+
+muteButton.addEventListener("click", () => {
+  muted = !muted;
+  muteButton.textContent = muted ? "Unmute" : "Mute";
+  muteButton.classList.toggle("muted", muted);
+});
+
+startGame();
