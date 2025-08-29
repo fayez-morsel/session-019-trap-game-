@@ -1,3 +1,4 @@
+// DOM ELEMENTS 
 const gameBoard = document.getElementById("game-board");
 const gameMessage = document.getElementById("game-message");
 const resetButton = document.getElementById("reset-button");
@@ -8,16 +9,17 @@ const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlay-text");
 const overlayBtn = document.getElementById("overlay-btn");
 
+// GAME STATE 
 let currentLevel = 1;
 let currentLives = 3;
 let gameStarted = false;
 let playerPos = { r: -1, c: -1 };
-let boardData = [];
+let boardData = []; // 0: empty, 1: path, 2: start, 3: goal
 let flashTimeoutId = null;
 let muted = false;
 
-// ---------------- AUDIO ----------------
-let audioCtx;
+// AUDIO 
+let audioCtx = null;
 
 function beep(freq, dur = 100, type = "sine") {
   if (muted) return;
@@ -28,11 +30,12 @@ function beep(freq, dur = 100, type = "sine") {
     audioCtx.resume();
   }
 
-  let osc = audioCtx.createOscillator();
-  let gain = audioCtx.createGain();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
 
   osc.type = type;
-  osc.frequency.value = freq;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
   gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(
     0.001,
@@ -42,51 +45,44 @@ function beep(freq, dur = 100, type = "sine") {
   osc.connect(gain);
   gain.connect(audioCtx.destination);
 
-  osc.start(audioCtx.currentTime);
+  osc.start();
   osc.stop(audioCtx.currentTime + dur / 1000);
 }
 
-//Game Configuratio
+// GAME CONFIGURATION 
 function gridSizeForLevel(lv) {
   return 10 + Math.floor((lv - 1) / 2);
 }
 
-//Path Generation
+// PATH GENERATION
 function makeLevel(lv) {
   const size = gridSizeForLevel(lv);
   const g = Array.from({ length: size }, () => Array(size).fill(0));
-  let r = 0,
-    c = 0;
-  g[0][0] = 2;
+  let r = 0, c = 0;
+
+  g[0][0] = 2; 
 
   while (r !== size - 1 || c !== size - 1) {
     let moves = [];
     if (r < size - 1) moves.push([1, 0]);
     if (c < size - 1) moves.push([0, 1]);
-
     if (r > 0 && Math.random() < 0.2) moves.push([-1, 0]);
     if (c > 0 && Math.random() < 0.2) moves.push([0, -1]);
 
-    if (moves.length === 0) {
-      if (r < size - 1) moves.push([1, 0]);
-      if (c < size - 1) moves.push([0, 1]);
-      if (r > 0) moves.push([-1, 0]);
-      if (c > 0) moves.push([0, -1]);
-    }
     if (moves.length === 0) break;
 
-    let [dr, dc] = moves[Math.floor(Math.random() * moves.length)];
+    const [dr, dc] = moves[Math.floor(Math.random() * moves.length)];
     r += dr;
     c += dc;
-    if (g[r][c] !== 2 && g[r][c] !== 3) {
-      g[r][c] = 1;
-    }
+
+    if (g[r][c] === 0) g[r][c] = 1;
   }
+
   g[size - 1][size - 1] = 3;
   return g;
 }
 
-//UI Update Functions
+// UI FUNCTIONS
 function updateHUD() {
   levelDisplay.textContent = `Level: ${currentLevel}`;
   livesDisplay.textContent = `Lives: ${"❤️".repeat(currentLives)}`;
@@ -112,14 +108,18 @@ function showOverlay(text, buttonText, buttonBg, onClickHandler) {
       ? "rgba(255, 107, 107, 0.8)"
       : "rgba(46, 204, 113, 0.8)"
   }`;
-  overlayBtn.onclick = () => {
+
+  overlayBtn.replaceWith(overlayBtn.cloneNode(true));
+  const newBtn = document.getElementById("overlay-btn");
+  newBtn.onclick = () => {
     overlay.classList.remove("visible");
     onClickHandler();
   };
+
   overlay.classList.add("visible");
 }
 
-// Game State Management
+// GAME STATE MANAGEMENT
 function resetGame() {
   currentLevel = 1;
   currentLives = 3;
@@ -152,7 +152,61 @@ function gameOver() {
     resetGame
   );
 }
-// Game Initialization
+
+// BOARD RENDERING
+function renderBoard() {
+  const size = boardData.length;
+  gameBoard.innerHTML = "";
+  gameBoard.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  gameBoard.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const cell = document.createElement("div");
+      cell.classList.add("grid-cell");
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      if (boardData[r][c] === 0) cell.classList.add("empty");
+      else if (boardData[r][c] === 1) cell.classList.add("path");
+      else if (boardData[r][c] === 2) cell.classList.add("start");
+      else if (boardData[r][c] === 3) cell.classList.add("goal");
+
+      gameBoard.appendChild(cell);
+    }
+  }
+  updateHUD();
+}
+
+function updatePlayerPosition(newR, newC) {
+  if (playerPos.r !== -1 && playerPos.c !== -1) {
+    const oldCell = document.querySelector(
+      `[data-row="${playerPos.r}"][data-col="${playerPos.c}"]`
+    );
+    if (oldCell) oldCell.classList.remove("player");
+  }
+
+  const newCell = document.querySelector(
+    `[data-row="${newR}"][data-col="${newC}"]`
+  );
+  if (!newCell) return;
+
+  newCell.classList.add("player");
+  playerPos = { r: newR, c: newC };
+
+  const cellType = boardData[newR][newC];
+  if (cellType === 0) {
+    beep(200, 100, "square");
+    currentLives = Math.max(0, currentLives - 1);
+    applyFlashEffect();
+    updateHUD();
+    if (currentLives <= 0) gameOver();
+  } else if (cellType === 3) {
+    nextLevel();
+  }
+}
+
+// GAME INIT
 function startGame() {
   boardData = makeLevel(currentLevel);
   renderBoard();
@@ -161,7 +215,7 @@ function startGame() {
   updateHUD();
 }
 
-// Event Listeners
+// EVENT LISTENERS 
 gameBoard.addEventListener("click", (e) => {
   const clickedCell = e.target.closest(".grid-cell");
   if (!clickedCell) return;
@@ -194,13 +248,6 @@ gameBoard.addEventListener("mousemove", (e) => {
 
   if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
     updatePlayerPosition(r, c);
-  } else if (dr === 0 && dc === 0) {
-  } else {
-    currentLives = 0;
-    beep(150, 300, "sawtooth");
-    applyFlashEffect();
-    updateHUD();
-    gameOver();
   }
 });
 
@@ -222,4 +269,5 @@ muteButton.addEventListener("click", () => {
   muteButton.classList.toggle("muted", muted);
 });
 
+// START 
 startGame();
