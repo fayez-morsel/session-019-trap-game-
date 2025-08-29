@@ -85,3 +85,36 @@ function makeLevel(lv) {
   g[size - 1][size - 1] = 3;
   return g;
 }
+
+//UI Update Functions
+function updateHUD() {
+  levelDisplay.textContent = `Level: ${currentLevel}`;
+  livesDisplay.textContent = `Lives: ${"❤️".repeat(currentLives)}`;
+  gameMessage.textContent = gameStarted
+    ? `Level ${currentLevel} - Lives: ${currentLives}`
+    : "Click the red square to start!";
+}
+
+function applyFlashEffect() {
+  document.body.classList.add("flash-red-bg");
+  if (flashTimeoutId) clearTimeout(flashTimeoutId);
+  flashTimeoutId = setTimeout(() => {
+    document.body.classList.remove("flash-red-bg");
+  }, 200);
+}
+
+function showOverlay(text, buttonText, buttonBg, onClickHandler) {
+  overlayText.textContent = text;
+  overlayBtn.textContent = buttonText;
+  overlayBtn.style.background = buttonBg;
+  overlayBtn.style.boxShadow = `0 0 20px ${
+    buttonBg.includes("red")
+      ? "rgba(255, 107, 107, 0.8)"
+      : "rgba(46, 204, 113, 0.8)"
+  }`;
+  overlayBtn.onclick = () => {
+    overlay.classList.remove("visible");
+    onClickHandler();
+  };
+  overlay.classList.add("visible");
+}
