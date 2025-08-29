@@ -118,3 +118,37 @@ function showOverlay(text, buttonText, buttonBg, onClickHandler) {
   };
   overlay.classList.add("visible");
 }
+
+// Game State Management 
+function resetGame() {
+  currentLevel = 1;
+  currentLives = 3;
+  gameStarted = false;
+  playerPos = { r: -1, c: -1 };
+  startGame();
+}
+
+function nextLevel() {
+  beep(1000, 200);
+  currentLevel++;
+  gameStarted = false;
+  playerPos = { r: -1, c: -1 };
+  showOverlay(
+    `Level ${currentLevel - 1} Complete!`,
+    "Next Level",
+    "linear-gradient(to right, #2ecc71, #27ae60)",
+    startGame
+  );
+}
+
+function gameOver() {
+  beep(150, 300, "sawtooth");
+  gameStarted = false;
+  playerPos = { r: -1, c: -1 };
+  showOverlay(
+    "Game Over!",
+    "Restart",
+    "linear-gradient(to right, #ff6b6b, #ee5253)",
+    resetGame
+  );
+}
