@@ -1,4 +1,4 @@
-// DOM ELEMENTS 
+// DOM ELEMENTS
 const gameBoard = document.getElementById("game-board");
 const gameMessage = document.getElementById("game-message");
 const resetButton = document.getElementById("reset-button");
@@ -9,17 +9,20 @@ const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlay-text");
 const overlayBtn = document.getElementById("overlay-btn");
 
-// GAME STATE 
+// GAME STATE
 let currentLevel = 1;
 let currentLives = 3;
 let gameStarted = false;
 let playerPos = { r: -1, c: -1 };
-let boardData = []; // 0: empty, 1: path, 2: start, 3: goal
+let boardData = [];
 let flashTimeoutId = null;
 let muted = false;
 
-// AUDIO 
+// AUDIO
 let audioCtx = null;
+let bgMusic = new Audio("bg.mp3");
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
 
 function beep(freq, dur = 100, type = "sine") {
   if (muted) return;
@@ -49,7 +52,7 @@ function beep(freq, dur = 100, type = "sine") {
   osc.stop(audioCtx.currentTime + dur / 1000);
 }
 
-// GAME CONFIGURATION 
+// GAME CONFIGURATION
 function gridSizeForLevel(lv) {
   return 10 + Math.floor((lv - 1) / 2);
 }
@@ -58,9 +61,10 @@ function gridSizeForLevel(lv) {
 function makeLevel(lv) {
   const size = gridSizeForLevel(lv);
   const g = Array.from({ length: size }, () => Array(size).fill(0));
-  let r = 0, c = 0;
+  let r = 0,
+    c = 0;
 
-  g[0][0] = 2; 
+  g[0][0] = 2;
 
   while (r !== size - 1 || c !== size - 1) {
     let moves = [];
@@ -213,9 +217,15 @@ function startGame() {
   playerPos = { r: -1, c: -1 };
   gameStarted = false;
   updateHUD();
+
+  if (!muted) {
+  bgMusic.play().catch(() => {
+  });
 }
 
-// EVENT LISTENERS 
+}
+
+// EVENT LISTENERS
 gameBoard.addEventListener("click", (e) => {
   const clickedCell = e.target.closest(".grid-cell");
   if (!clickedCell) return;
@@ -267,7 +277,15 @@ muteButton.addEventListener("click", () => {
   muted = !muted;
   muteButton.textContent = muted ? "Unmute" : "Mute";
   muteButton.classList.toggle("muted", muted);
+
+  if (muted) {
+    bgMusic.pause();
+  } else {
+    bgMusic.play().catch(() => {
+    });
+  }
 });
 
-// START 
+
+// START
 startGame();
